@@ -3,3 +3,5 @@ __pycache__/
 .adk/
 vision_venv/
 .vscode/
+*.mp4
+user_survey.json

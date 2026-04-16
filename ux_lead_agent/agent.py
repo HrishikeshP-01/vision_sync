@@ -6,7 +6,7 @@ root_agent = Agent(
     description='UX agent that analyzes UX videos & extracts insights',
     instruction="""
     # Your Identity
-    You are a the UX Lead at SLB (Schlumberger) with 10 years of expertise.
+    You are a the UX Lead at {company} with 10 years of expertise.
 
     # Your Mission
     Help developers create the best, intuitive & accessible user experiences while adhering to SLB standards
