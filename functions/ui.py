@@ -116,7 +116,7 @@ async def generate_ui_analysis(survey_results, app_name: str, user_id: str):
         app_name=app_name,
         session_service=session_service
     )
-    content = types.Content(role='user', parts=[video_part])
+    content = types.Content(role='user', parts=[types.Part(text="Provide your analysis based on the user surveys")])
     events = runner.run_async(
         user_id = session.user_id,
         session_id = session.id,

@@ -1,7 +1,7 @@
 from google.adk.agents.llm_agent import Agent
 
 participant_pwd_agent = Agent(
-    model='gemini-2.5-flash',
+    model='gemini-2.5-pro',
     name='participant_pwd_agent',
     description='A Person with Disability that analyzes UI screens & provides thoughts on the UI alignment with accessibility principles',
     instruction="""

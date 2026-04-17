@@ -1,7 +1,7 @@
 from google.adk.agents.llm_agent import Agent
 
 accessibility_ui_designer = Agent(
-    model='gemini-2.5-flash',
+    model='gemini-2.5-pro',
     name='accessibility_ui_designer',
     description='Analyzes surveys by Persons with Disabilties & reccommends changes to make UI more accessible',
     instruction="""

@@ -5,6 +5,7 @@ import asyncio
 from google.genai import types
 
 from functions.ux import run_personas, get_ux_lead_analysis
+from functions.ui import segment_images, generate_surveys, generate_ui_analysis
 
 personas = {}
 with open('input/personas.json', 'r') as f:
@@ -39,7 +40,7 @@ if st.session_state.step == 1:
         )
 
         if st.button("Next"):
-            st.session_state.step = 2
+            st.session_state.step = 3
             st.rerun()
 
     else:
@@ -99,10 +100,10 @@ if st.session_state.step == 2:
         st.session_state.ux_results = ux_results
         st.markdown("---")
         # Custom CSS for the "small window" look
-        st.write("### Agent Critique Window")
         st.session_state.run_active = False
         
     if "ux_results" in st.session_state:
+        st.write("### UX Critique Window")
         with st.container(border=True):
             # Dropdown at the top of the window
             option_to_display = st.selectbox(
@@ -112,3 +113,52 @@ if st.session_state.step == 2:
             
             # Display the markdown content
             st.markdown(st.session_state.ux_results[option_to_display])
+
+    if st.button("Next"):
+            st.session_state.step = 3
+            st.rerun()
+
+
+# Screen 3: UI Analysis
+if st.session_state.step == 3:
+    st.write("### Accessibility UI Analysis")
+
+    run_pressed = st.button("Run")
+
+    # Use session state to keep the window open after the button is pressed
+    if "run_active" not in st.session_state:
+        st.session_state.run_active = False
+
+    if run_pressed:
+        st.session_state.run_active = True
+        st.session_state.ui_results = None
+
+    if st.session_state.run_active:
+
+        asyncio.run(
+            segment_images(st.session_state.video_part, app_name='VisionSync', user_id='User')
+        )
+        st.info('Segmenting Images... Done')
+
+        survey = asyncio.run(
+            generate_surveys(['protanopia', 'tritanopia'], app_name='VisionSync', user_id='User')
+        )
+        st.info('Generating Surveys... Done')
+
+        st.session_state.ui_results = asyncio.run(
+            generate_ui_analysis(survey, app_name='X', user_id='Y')
+        )
+        st.info('Analyzing UI Feedback... Done')
+        st.session_state.run_active = False
+
+    if "ui_results" in st.session_state:
+        st.write("### UI Critique Window")
+        with st.container(border=True):
+            # Dropdown at the top of the window
+            option_to_display = st.selectbox(
+                "Select Persona to View:", 
+                options=st.session_state.ui_results.keys()
+            )
+            
+            # Display the markdown content
+            st.markdown(st.session_state.ui_results[option_to_display])
