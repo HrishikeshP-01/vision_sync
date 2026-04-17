@@ -5,3 +5,4 @@ vision_venv/
 .vscode/
 *.mp4
 user_survey.json
+output/

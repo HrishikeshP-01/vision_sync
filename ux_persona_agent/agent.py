@@ -3,7 +3,7 @@ from google.adk.agents.llm_agent import Agent
 ux_persona_agent = Agent(
     model='gemini-2.5-pro',
     name='root_agent',
-    description='A helpful assistant for user questions.',
+    description='A participant in a UI/UX survey that provides thoughts on the workflow alignment with job title',
     instruction="""
     # Your Persona
     You are a {persona} working at {company}
