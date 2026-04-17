@@ -1,106 +1,114 @@
 import streamlit as st
-import os
-import uuid
-from dotenv import load_dotenv
-from pprint import pprint
-import asyncio
 import json
-import base64
+import asyncio
 
 from google.genai import types
 
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from functions.ux import run_personas, get_ux_lead_analysis
 
-from ux_persona_agent.agent import ux_persona_agent
+personas = {}
+with open('input/personas.json', 'r') as f:
+    personas = json.load(f)
 
-load_dotenv()
+# --- Page Config ---
+st.set_page_config(page_title="Vision Sync", layout="centered")
 
+# Initialize Session State for Navigation
+if "step" not in st.session_state:
+    st.session_state.step = 1
+if "run_active" not in st.session_state:
+    st.session_state.run_active = False
 
-async def run_personas(app_name: str, user_id: str, video_part):
-    session_service = InMemorySessionService()
-    # Define initial state
-    initial_state = {
-        "company": f'{os.getenv("COMPANY")}',
-        "persona": "",
-        "background": "",
-        "personality": "",
-        "ux_likes": "",
-        "ui_likes": "",
-        "ux_dislikes": "",
-        "ui_dislikes": "",
-        "examples": ""
-    }
+# --- UI Layout ---
+st.title("Vision Sync")
 
-    session = await session_service.create_session(
-        app_name = app_name,
-        user_id = user_id,
-        state = initial_state
-    )
+# Screen 1: Video Selection
+if st.session_state.step == 1:
+    st.write("### Upload Workflow Video")
+    video_file = st.file_uploader("Select the file location of the video clip", type=["mp4", "mov", "avi", "mkv"])
 
-    #print('Initial State:')
-    #pprint(session.state)
-
-    runner = Runner(
-        agent=ux_persona_agent,
-        app_name=app_name,
-        session_service=session_service
+    if video_file is not None:
+        st.video(video_file)
+        st.success(f"Loaded: {video_file.name}")
+        video_bytes = video_file.getvalue()
+        st.session_state.video_part = types.Part(
+            inline_data = types.Blob(
+                mime_type = 'video/mp4',
+                data=video_bytes
+            )
         )
 
-    # Load the personas & get the user surveys
-    personas = None
-    user_surveys = {}
-    with open('personas.json', 'r') as f:
-        personas = json.load(f)
+        if st.button("Next"):
+            st.session_state.step = 2
+            st.rerun()
 
+    else:
+        st.info("Please upload a video to proceed")
+
+# Screen 2: UX Analysis
+if st.session_state.step == 2:
+    st.write("### UX Analysis")
+
+    # Section 1: Options Selection
+    st.write("Select Personas to Simulate")
+    selected_options = []
+    col1, col2, col3 = st.columns(3)
+
+    i = 1
     for persona in personas:
+        if i%3 == 0:
+            with col3:
+                if st.checkbox(persona):
+                    selected_options.append(persona)
+        elif i%2 == 0:
+            with col2:
+                if st.checkbox(persona):
+                    selected_options.append(persona)
+        else:
+            with col1:
+                if st.checkbox(persona):
+                    selected_options.append(persona)
+        
+        i += 1
 
-        session.state['persona'] = persona
-        attributes = personas[persona]
-        for key in attributes.keys():
-            session.state[key] = attributes[key]
+    run_pressed = st.button("Run")
 
-        session = await session_service.create_session(
-            app_name = app_name,
-            user_id = user_id,
-            state = session.state
+    # Use session state to keep the window open after the button is pressed
+    if "run_active" not in st.session_state:
+        st.session_state.run_active = False
+
+    if run_pressed:
+        if not selected_options:
+            st.warning("Please select at least one option.")
+            st.session_state.run_active = False
+        else:
+            st.session_state.run_active = True
+            st.session_state.last_selected = selected_options
+            st.session_state.ux_results = None
+
+    # Section 2: Output Window
+    if st.session_state.run_active:
+        ux_state = asyncio.run(
+            run_personas(st.session_state.last_selected, st.session_state.video_part, app_name='VisionSync', user_id='User')
         )
-        #pprint(session.state)
-
-        content = types.Content(role='user', parts=[video_part])
-
-        # Execute agent event asynchronously using the agent runner
-        # Session information is passed via user_id & session_id
-        events = runner.run_async(
-            user_id = session.user_id,
-            session_id = session.id,
-            new_message = content
+        st.info("Conducted surveys..")
+        ux_results = asyncio.run(
+            get_ux_lead_analysis(ux_state, st.session_state.video_part, app_name='VisionSync', user_id='User')
         )
-
-        async for event in events:
-            #print(event)
-            if event.is_final_response():
-                final_response = event.content.parts[0].text
-                print(final_response)
-                user_surveys[persona] = final_response
-
-    pprint(user_surveys)
-    with open('user_survey.json', 'w', encoding='utf-8') as f:
-        json.dump(user_surveys, f, indent=4)
-
-if __name__ == "__main__":
-
-    with open('Demo.mp4', 'rb') as f:
-        video_bytes = f.read()
-    video_part = types.Part(
-        inline_data=types.Blob(
-            mime_type='video/mp4',
-            data=video_bytes
-        )
-    )
-
-    asyncio.run(run_personas(
-        app_name='X',
-        user_id='Y',
-        video_part=video_part
-    ))
+        print(ux_results)
+        st.session_state.ux_results = ux_results
+        st.markdown("---")
+        # Custom CSS for the "small window" look
+        st.write("### Agent Critique Window")
+        st.session_state.run_active = False
+        
+    if "ux_results" in st.session_state:
+        with st.container(border=True):
+            # Dropdown at the top of the window
+            option_to_display = st.selectbox(
+                "Select Persona to View:", 
+                options=st.session_state.ux_results.keys()
+            )
+            
+            # Display the markdown content
+            st.markdown(st.session_state.ux_results[option_to_display])
